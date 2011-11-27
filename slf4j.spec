@@ -30,7 +30,7 @@
 
 Name:           slf4j
 Version:        1.6.1
-Release:        2
+Release:        4
 Summary:        Simple Logging Facade for Java
 Group:          Development/Java
 License:        MIT
