@@ -30,11 +30,11 @@
 #
 
 Name:           slf4j
-Version:        1.7.5
-Release:        3.1%{?dist}
+Version:        1.7.13
+Release:        1.1
 Epoch:          0
 Summary:        Simple Logging Facade for Java
-
+Group:          Development/Java
 # the log4j-over-slf4j and jcl-over-slf4j submodules are ASL 2.0, rest is MIT
 License:        MIT and ASL 2.0
 URL:            http://www.slf4j.org/
@@ -58,6 +58,7 @@ BuildRequires:  maven-plugin-build-helper
 BuildRequires:  log4j
 BuildRequires:  apache-commons-logging
 BuildRequires:  cal10n
+BuildRequires:  perl
 
 %description
 The Simple Logging Facade for Java or (SLF4J) is intended to serve
@@ -83,6 +84,48 @@ Summary:        Manual for %{name}
 %description manual
 This package provides documentation for %{name}.
 
+%package jdk14
+Summary:        SLF4J JDK14 Binding
+
+%description jdk14
+SLF4J JDK14 Binding.
+
+%package log4j12
+Summary:        SLF4J LOG4J-12 Binding
+
+%description log4j12
+SLF4J LOG4J-12 Binding.
+
+%package jcl
+Summary:        SLF4J JCL Binding
+
+%description jcl
+SLF4J JCL Binding.
+
+%package ext
+Summary:        SLF4J Extensions Module
+
+%description ext
+Extensions to the SLF4J API.
+
+%package -n jcl-over-slf4j
+Summary:        JCL 1.1.1 implemented over SLF4J
+
+%description -n jcl-over-slf4j
+JCL 1.1.1 implemented over SLF4J.
+
+%package -n log4j-over-slf4j
+Summary:        Log4j implemented over SLF4J
+
+%description -n log4j-over-slf4j
+Log4j implemented over SLF4J.
+
+%package -n jul-to-slf4j
+Summary:        JUL to SLF4J bridge
+
+%description -n jul-to-slf4j
+JUL to SLF4J bridge.
+
 %prep
 %setup -q
 find . -name "*.jar" | xargs rm
@@ -90,6 +133,8 @@ cp -p %{SOURCE1} APACHE-LICENSE
 
 %pom_disable_module integration
 %pom_disable_module osgi-over-slf4j
+%pom_disable_module slf4j-android
+%pom_disable_module slf4j-migrator
 %pom_remove_plugin :maven-source-plugin
 
 # Because of a non-ASCII comment in slf4j-api/src/main/java/org/slf4j/helpers/MessageFormatter.java
@@ -107,6 +152,9 @@ cp -p %{SOURCE1} APACHE-LICENSE
 %{_bindir}/find -name "*.css" -o -name "*.js" -o -name "*.txt" | \
     %{_bindir}/xargs -t %{__perl} -pi -e 's/\r$//g'
 
+# Remove wagon-ssh build extension
+%pom_xpath_remove pom:extensions
+
 # The general pattern is that the API package exports API classes and does
 # not require impl classes. slf4j was breaking that causing "A cycle was
 # detected when generating the classpath slf4j.api, slf4j.nop, slf4j.api."
@@ -116,15 +164,20 @@ cp -p %{SOURCE1} APACHE-LICENSE
 # Reported upstream: http://bugzilla.slf4j.org/show_bug.cgi?id=283
 sed -i "/Import-Package/s/.$/;resolution:=optional&/" slf4j-api/src/main/resources/META-INF/MANIFEST.MF
 
+%mvn_package :%{name}-parent __noinstall
+%mvn_package :%{name}-site __noinstall
+%mvn_package :%{name}-api
+%mvn_package :%{name}-simple
+%mvn_package :%{name}-nop
+
 %build
-%mvn_build -f
+%mvn_build -f -s
 
 %install
-%mvn_install
-
 # Compat symlinks
-(cd $RPM_BUILD_ROOT/%{_javadir}/%{name}; for jar in %{name}-*; do
-    ln -s $jar ${jar/%{name}-/}; done)
+%mvn_file ':%{name}-{*}' %{name}/%{name}-@1 %{name}/@1
+
+%mvn_install
 
 # manual
 install -d -m 0755 $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-manual
@@ -133,7 +186,15 @@ cp -pr target/site/* $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-manual
 
 %files -f .mfiles
 %doc LICENSE.txt APACHE-LICENSE
-%{_javadir}/%{name}
+%dir %{_javadir}/%{name}
+
+%files jdk14 -f .mfiles-%{name}-jdk14
+%files log4j12 -f .mfiles-%{name}-log4j12
+%files jcl -f .mfiles-%{name}-jcl
+%files ext -f .mfiles-%{name}-ext
+%files -n jcl-over-slf4j -f .mfiles-jcl-over-slf4j
+%files -n log4j-over-slf4j -f .mfiles-log4j-over-slf4j
+%files -n jul-to-slf4j -f .mfiles-jul-to-slf4j
 
 %files javadoc -f .mfiles-javadoc
 %doc LICENSE.txt APACHE-LICENSE
@@ -142,6 +203,39 @@ cp -pr target/site/* $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-manual
 %doc LICENSE.txt APACHE-LICENSE
 
 %changelog
+* Mon Jan 19 2015 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.10-1
+- Update to upstream version 1.7.10
+
+* Fri Oct 24 2014 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.7-3
+- Remove workaround for MSHARED-325
+
+* Sun Jun 08 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 0:1.7.7-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
+
+* Mon Apr 14 2014 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.7-1
+- Update to upstream version 1.7.7
+
+* Thu Mar 20 2014 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.6-5
+- Disable filtering of bundled JavaScript binaries
+- Resolves: rhbz#1078536
+
+* Fri Mar 07 2014 Michael Simacek <msimacek@redhat.com> - 0:1.7.6-4
+- Merge api, simple and nop back into main package
+- Remove parent, migrator and site subpackages
+
+* Fri Mar 07 2014 Michael Simacek <msimacek@redhat.com> - 0:1.7.6-3
+- Split into subpackages
+
+* Thu Mar  6 2014 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.6-2
+- Remove wagon-ssh build extension
+- Disable slf4j-android module
+
+* Tue Mar 04 2014 Stanislav Ochotnicky <sochotnicky@redhat.com> - 0:1.7.6-2
+- Use Requires: java-headless rebuild (#1067528)
+
+* Thu Feb  6 2014 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.6-1
+- Update to upstream version 1.7.6
+
 * Tue Aug 06 2013 Stanislav Ochotnicky <sochotnicky@redhat.com> - 0:1.7.5-3
 - Install manual to versionless docdir (#993551)
 
@@ -298,3 +392,4 @@ cp -pr target/site/* $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-manual
 
 * Mon Jan 30 2006 Ralph Apel <r.apel at r-apel.de> 0:1.0-0.rc5.1jpp
 - First JPackage release.
+
