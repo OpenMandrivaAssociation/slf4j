@@ -30,8 +30,8 @@
 #
 
 Name:           slf4j
-Version:        1.7.13
-Release:        1.1
+Version:        1.7.25
+Release:        3%{?dist}.1
 Epoch:          0
 Summary:        Simple Logging Facade for Java
 Group:          Development/Java
@@ -42,23 +42,15 @@ Source0:        http://www.slf4j.org/dist/%{name}-%{version}.tar.gz
 Source1:        http://www.apache.org/licenses/LICENSE-2.0.txt
 BuildArch:      noarch
 
-BuildRequires:  jpackage-utils >= 0:1.7.5
-BuildRequires:  java-devel >= 0:1.5.0
-BuildRequires:  ant >= 0:1.6.5
-BuildRequires:  ant-junit >= 0:1.6.5
-BuildRequires:  javassist >= 0:3.4
-BuildRequires:  junit >= 0:3.8.2
 BuildRequires:  maven-local
-BuildRequires:  maven-antrun-plugin
-BuildRequires:  maven-resources-plugin
-BuildRequires:  maven-source-plugin
-BuildRequires:  maven-site-plugin
-BuildRequires:  maven-doxia-sitetools
-BuildRequires:  maven-plugin-build-helper
-BuildRequires:  log4j
-BuildRequires:  apache-commons-logging
-BuildRequires:  cal10n
-BuildRequires:  perl
+BuildRequires:  mvn(ch.qos.cal10n:cal10n-api)
+BuildRequires:  mvn(commons-lang:commons-lang)
+BuildRequires:  mvn(commons-logging:commons-logging)
+BuildRequires:  mvn(javassist:javassist)
+BuildRequires:  mvn(log4j:log4j:1.2.17)
+BuildRequires:  mvn(org.apache.maven.plugins:maven-antrun-plugin)
+BuildRequires:  mvn(org.apache.maven.plugins:maven-source-plugin)
+BuildRequires:  mvn(org.codehaus.mojo:build-helper-maven-plugin)
 
 %description
 The Simple Logging Facade for Java or (SLF4J) is intended to serve
@@ -126,6 +118,12 @@ Summary:        JUL to SLF4J bridge
 %description -n jul-to-slf4j
 JUL to SLF4J bridge.
 
+%package sources
+Summary:        SLF4J Source JARs
+
+%description sources
+SLF4J Source JARs.
+
 %prep
 %setup -q
 find . -name "*.jar" | xargs rm
@@ -135,7 +133,6 @@ cp -p %{SOURCE1} APACHE-LICENSE
 %pom_disable_module osgi-over-slf4j
 %pom_disable_module slf4j-android
 %pom_disable_module slf4j-migrator
-%pom_remove_plugin :maven-source-plugin
 
 # Because of a non-ASCII comment in slf4j-api/src/main/java/org/slf4j/helpers/MessageFormatter.java
 %pom_xpath_inject "pom:project/pom:properties" "
@@ -149,11 +146,19 @@ cp -p %{SOURCE1} APACHE-LICENSE
     <links><link>/usr/share/javadoc/java</link></links>"
 
 # dos2unix
-%{_bindir}/find -name "*.css" -o -name "*.js" -o -name "*.txt" | \
-    %{_bindir}/xargs -t %{__perl} -pi -e 's/\r$//g'
+find -name "*.css" -o -name "*.js" -o -name "*.txt" | \
+    xargs -t sed -i 's/\r$//'
 
 # Remove wagon-ssh build extension
 %pom_xpath_remove pom:extensions
+
+# Disable default-jar execution of maven-jar-plugin, which is causing
+# problems with version 3.0.0 of the plugin.
+%pom_xpath_inject "pom:plugin[pom:artifactId='maven-jar-plugin']/pom:executions" "
+    <execution>
+      <id>default-jar</id>
+      <phase>skip</phase>
+    </execution>" slf4j-api
 
 # The general pattern is that the API package exports API classes and does
 # not require impl classes. slf4j was breaking that causing "A cycle was
@@ -163,6 +168,9 @@ cp -p %{SOURCE1} APACHE-LICENSE
 # optional one.
 # Reported upstream: http://bugzilla.slf4j.org/show_bug.cgi?id=283
 sed -i "/Import-Package/s/.$/;resolution:=optional&/" slf4j-api/src/main/resources/META-INF/MANIFEST.MF
+
+# Source JARs for are required by Maven 3.4.0
+%mvn_package :::sources: sources
 
 %mvn_package :%{name}-parent __noinstall
 %mvn_package :%{name}-site __noinstall
@@ -186,7 +194,6 @@ cp -pr target/site/* $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-manual
 
 %files -f .mfiles
 %doc LICENSE.txt APACHE-LICENSE
-%dir %{_javadir}/%{name}
 
 %files jdk14 -f .mfiles-%{name}-jdk14
 %files log4j12 -f .mfiles-%{name}-log4j12
@@ -196,13 +203,84 @@ cp -pr target/site/* $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-manual
 %files -n log4j-over-slf4j -f .mfiles-log4j-over-slf4j
 %files -n jul-to-slf4j -f .mfiles-jul-to-slf4j
 
+%files sources -f .mfiles-sources
+%doc LICENSE.txt APACHE-LICENSE
+
 %files javadoc -f .mfiles-javadoc
 %doc LICENSE.txt APACHE-LICENSE
 
 %files manual
 %doc LICENSE.txt APACHE-LICENSE
+%{_defaultdocdir}/%{name}-manual
 
 %changelog
+* Fri Feb 09 2018 Fedora Release Engineering <releng@fedoraproject.org> - 0:1.7.25-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_28_Mass_Rebuild
+
+* Thu Jul 27 2017 Fedora Release Engineering <releng@fedoraproject.org> - 0:1.7.25-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_27_Mass_Rebuild
+
+* Tue Mar 28 2017 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.25-1
+- Update to upstream version 1.7.25
+
+* Wed Feb 22 2017 Michael Simacek <msimacek@redhat.com> - 0:1.7.22-4
+- Avoid absolute paths
+
+* Thu Feb 16 2017 Michael Simacek <msimacek@redhat.com> - 0:1.7.22-3
+- Avoid literal carriage return
+- Remove Group tag
+
+* Sat Feb 11 2017 Fedora Release Engineering <releng@fedoraproject.org> - 0:1.7.22-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_26_Mass_Rebuild
+
+* Wed Dec 14 2016 Michael Simacek <msimacek@redhat.com> - 0:1.7.22-1
+- Update to upstream version 1.7.22
+
+* Fri Nov 18 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.21-4
+- Install source JARs in separate package
+
+* Mon Oct  3 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.21-3
+- Remove build-requires on perl
+
+* Tue May 31 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.21-2
+- Fix build issue with maven-jar-plugin 3.0.0
+
+* Wed Apr  6 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.21-1
+- Update to upstream version 1.7.21
+
+* Wed Mar 30 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.20-1
+- Update to upstream version 1.7.20
+
+* Thu Mar 24 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.19-1
+- Update to upstream version 1.7.19
+
+* Mon Feb 29 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.18-1
+- Update to upstream version 1.7.18
+
+* Mon Feb 22 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.17-1
+- Update to upstream version 1.7.17
+
+* Tue Feb 16 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.16-1
+- Update to upstream version 1.7.16
+
+* Fri Feb 05 2016 Fedora Release Engineering <releng@fedoraproject.org> - 0:1.7.14-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
+
+* Mon Jan 25 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.14-1
+- Update to upstream version 1.7.14
+
+* Thu Nov 12 2015 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.13-1
+- Update to upstream version 1.7.13
+
+* Mon Aug 03 2015 Michael Simacek <msimacek@redhat.com> - 0:1.7.12-3
+- List manual files in %%files section
+
+* Fri Jun 19 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 0:1.7.12-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
+
+* Thu May 14 2015 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.12-1
+- Update to upstream version 1.7.12
+
 * Mon Jan 19 2015 Mikolaj Izdebski <mizdebsk@redhat.com> - 0:1.7.10-1
 - Update to upstream version 1.7.10
 
@@ -392,4 +470,3 @@ cp -pr target/site/* $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-manual
 
 * Mon Jan 30 2006 Ralph Apel <r.apel at r-apel.de> 0:1.0-0.rc5.1jpp
 - First JPackage release.
-
