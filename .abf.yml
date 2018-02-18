@@ -1,4 +1,6 @@
 removed_sources:
+  slf4j-1.7.13.tar.gz: 48fc1b863541c80fe835092e5d7f2c6735493544
   slf4j-1.7.5.tar.gz: b9ad1236f9eef29830f82d3d974ecd826d7fd565
 sources:
-  slf4j-1.7.13.tar.gz: 48fc1b863541c80fe835092e5d7f2c6735493544
+  LICENSE-2.0.txt: 165b0fe3760b826a24797df41cb72654bfa3194a
+  slf4j-1.7.25.tar.gz: f564e3825b62172e81874ec73fafcc2747fb3d3b
